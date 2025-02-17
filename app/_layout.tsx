@@ -1,39 +1,75 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import '@/global.css';
+import { SplashScreen, Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { CategoryProvider } from '@/context/CategoryContext';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+export {
+  // Catch any errors thrown by the layout.
+  ErrorBoundary,
+} from 'expo-router';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+export const unstable_settings = {
+  initialRouteName: '(root)/(tabs)',
+};
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  const [fontsLoaded] = useFonts({
+    'Cereal-Black': require('@/assets/fonts/airbnb-cereal-app-black.ttf'),
+    'Cereal-Bold': require('@/assets/fonts/airbnb-cereal-app-bold.ttf'),
+    'Cereal-Book': require('@/assets/fonts/airbnb-cereal-app-book.ttf'),
+    'Cereal-Extrabold': require('@/assets/fonts/airbnb-cereal-app-extrabold.ttf'),
+    'Cereal-Light': require('@/assets/fonts/airbnb-cereal-app-light.ttf'),
+    'Cereal-Medium': require('@/assets/fonts/airbnb-cereal-app-medium.ttf'),
   });
 
   useEffect(() => {
-    if (loaded) {
+    if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [fontsLoaded]);
 
-  if (!loaded) {
-    return null;
-  }
+  if (!fontsLoaded) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CategoryProvider>
+        <RootLayoutNav />
+      </CategoryProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+function RootLayoutNav() {
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: '#fff',
+        },
+        headerTitleStyle: {
+          fontFamily: 'Cereal-Medium',
+        },
+      }}
+    >
+      <Stack.Screen name="(root)/(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="(root)/(modals)"
+        options={{
+          headerShown: false,
+          presentation: 'containedModal',
+          animation: 'slide_from_bottom',
+        }}
+      />
+      <Stack.Screen
+        name="(root)/listing/[id]"
+        options={{
+          headerTitle: '',
+        }}
+      />
+    </Stack>
   );
 }

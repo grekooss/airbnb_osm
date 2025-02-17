@@ -2,12 +2,17 @@
 
 # dependencies
 node_modules/
+.yarn/
+.pnp.*
 
 # Expo
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+*.apk
+*.aab
+*.ipa
 
 # Native
 *.orig.*
@@ -16,14 +21,18 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+android/
+ios/
 
 # Metro
 .metro-health-check*
+.metro/
 
 # debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
 
 # macOS
 .DS_Store
@@ -31,8 +40,25 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+
+# React Native specific
+.watchmanconfig
+.buckconfig
+*.keystore
+!debug.keystore
 
 app-example
