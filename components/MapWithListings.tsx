@@ -1,5 +1,5 @@
 import { database } from '@/lib/appwrite';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Query } from 'react-native-appwrite';
 import { categories } from '../constants/categories';
@@ -7,6 +7,9 @@ import { useCategory } from '../context/CategoryContext';
 import { ListingModel } from '../types/listing';
 import { MapBounds, Marker } from '../types/map';
 import ListingsMap from './ListingsMap';
+import ListingPopup from './ListingPopup';
+import ListingsBottomSheet from './ListingsBottomSheet';
+import BottomSheet from '@gorhom/bottom-sheet';
 
 const getCategoryIcon = (category: string): string => {
   const foundCategory = categories.find(
@@ -25,6 +28,8 @@ export default function MapWithListings({
   const [listings, setListings] = useState<ListingModel[]>([]);
   const { activeCategory } = useCategory();
   const [currentBounds, setCurrentBounds] = useState<MapBounds | null>(null);
+  const [selectedListing, setSelectedListing] = useState<ListingModel | null>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
   const parseWayPoints = (way: string): [number, number][] => {
     try {
@@ -92,38 +97,67 @@ export default function MapWithListings({
     await fetchListings(bounds, activeCategory);
   };
 
+  const handleMarkerPress = (marker: Marker) => {
+    const listing = listings.find(l => l.osm_id === marker.id);
+    if (listing) {
+      setSelectedListing(listing);
+      // Chowamy BottomSheet
+      if (bottomSheetRef.current) {
+        bottomSheetRef.current.close();
+      }
+    }
+  };
+
+  const handlePopupClose = () => {
+    setSelectedListing(null);
+    // Wysuwamy BottomSheet
+    if (bottomSheetRef.current) {
+      bottomSheetRef.current.snapToIndex(0);
+    }
+  };
+
+  const markers = listings
+    .map(listing => {
+      try {
+        const [lat, lon] = JSON.parse(listing.center_point);
+        const wayPoints = parseWayPoints(listing.way);
+        return {
+          id: listing.osm_id,
+          position: [lat, lon] as [number, number],
+          title:
+            listing.name ||
+            `${listing.building} ${listing.addr_housenumber}`,
+          wayPoints,
+          icon: getCategoryIcon(listing.building),
+        };
+      } catch (e) {
+        console.error('Błąd parsowania center_point:', e);
+        return undefined;
+      }
+    })
+    .filter((marker): marker is Marker => marker !== undefined);
+
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       <ListingsMap
+        markers={markers}
         onBoundsChange={handleBoundsChange}
-        onMapStateChange={state => {
-          console.log('Map state changed:', state);
-        }}
+        onMarkerPress={handleMarkerPress}
         initialState={{
-          center: [54.0381, 21.7644], // Giżycko
+          center: [54.0381, 21.7644],
           zoom: 13,
         }}
-        markers={listings
-          .map(listing => {
-            try {
-              const [lat, lon] = JSON.parse(listing.center_point);
-              const wayPoints = parseWayPoints(listing.way);
-              return {
-                id: listing.$id,
-                position: [lat, lon] as [number, number],
-                title:
-                  listing.name ||
-                  `${listing.building} ${listing.addr_housenumber}`,
-                wayPoints,
-                icon: getCategoryIcon(listing.building),
-              };
-            } catch (e) {
-              console.error('Błąd parsowania center_point:', e);
-              return undefined;
-            }
-          })
-          .filter((marker): marker is Marker => marker !== undefined)}
       />
+      <ListingsBottomSheet 
+        ref={bottomSheetRef}
+        listings={listings}
+      />
+      {selectedListing && (
+        <ListingPopup
+          listing={selectedListing}
+          onClose={handlePopupClose}
+        />
+      )}
     </View>
   );
 }

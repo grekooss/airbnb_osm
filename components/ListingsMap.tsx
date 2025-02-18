@@ -9,6 +9,7 @@ interface ListingsMapProps {
   markers: Marker[];
   onBoundsChange?: (bounds: MapBounds) => void;
   onMapStateChange?: (state: any) => void;
+  onMarkerPress?: (marker: Marker) => void;
   initialState: {
     center: [number, number];
     zoom: number;
@@ -54,6 +55,7 @@ export default function ListingsMap({
   markers,
   onBoundsChange,
   onMapStateChange,
+  onMarkerPress,
   initialState,
 }: ListingsMapProps) {
   const webViewRef = useRef<WebView>(null);
@@ -276,7 +278,8 @@ export default function ListingsMap({
               })
                 .bindPopup(marker.title);
               
-              markers.addLayer(markerLayer);
+              const markerInstance = createMarker(marker);
+              markers.addLayer(markerInstance);
 
               // Jeśli mamy punkty way, dodajemy obrys budynku
               if (marker.wayPoints && marker.wayPoints.length > 2) {
@@ -310,6 +313,31 @@ export default function ListingsMap({
               'business-outline': 'M14 11h-4v3h4v-3zm0-4h-4v3h4V7zm0 8h-4v3h4v-3zm6-8h-4v3h4V7zm0 4h-4v3h4v-3zm0 4h-4v3h4v-3zM10 7H6v3h4V7zm0 4H6v3h4v-3zm0 4H6v3h4v-3z'
             };
             return icons[iconName] || icons['map'];
+          }
+
+          // Funkcja do tworzenia markerów
+          function createMarker(marker) {
+            const el = document.createElement('div');
+            el.className = 'custom-marker';
+            el.innerHTML = '🏠';
+            
+            const markerInstance = L.marker(marker.position, {
+              icon: L.divIcon({
+                html: el,
+                className: 'custom-marker-container',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+              })
+            }).addTo(markers);
+
+            markerInstance.on('click', () => {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'markerClick',
+                markerId: marker.id
+              }));
+            });
+            
+            return markerInstance;
           }
 
           // Nasłuchiwanie zmian granic mapy
@@ -378,6 +406,22 @@ export default function ListingsMap({
     webViewRef.current?.injectJavaScript(`changeMapType('${type}')`);
   };
 
+  const handleMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'boundsChanged' && onBoundsChange) {
+        onBoundsChange(data.bounds);
+      } else if (data.type === 'markerClick' && onMarkerPress) {
+        const marker = markers.find(m => m.id === data.markerId);
+        if (marker) {
+          onMarkerPress(marker);
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing message:', e);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <WebView
@@ -385,14 +429,7 @@ export default function ListingsMap({
         style={styles.map}
         source={{ html: mapHTML }}
         scrollEnabled={false}
-        onMessage={event => {
-          const data = JSON.parse(event.nativeEvent.data);
-          if (data.type === 'boundsChanged' && onBoundsChange) {
-            onBoundsChange(data.bounds);
-          } else if (data.type === 'mapStateChanged' && onMapStateChange) {
-            onMapStateChange(data.state);
-          }
-        }}
+        onMessage={handleMessage}
       />
       <TouchableOpacity
         style={styles.locationButton}
