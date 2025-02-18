@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { ListingModel } from '../types/listing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Marker } from '../types/map';
+import PopupMap from './PopupMap';
 
 interface ListingPopupProps {
   listing: ListingModel;
@@ -9,111 +11,79 @@ interface ListingPopupProps {
 }
 
 const ListingPopup = ({ listing, onClose }: ListingPopupProps) => {
-  return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <MaterialCommunityIcons name="close" size={24} color="black" />
-        </TouchableOpacity>
+  const wayPoints = listing.way ? JSON.parse(listing.way) : [];
+  const [lat, lon] = wayPoints.length > 0 ? wayPoints[0] : [0, 0];
+  
+  const marker: Marker = {
+    id: listing.osm_id,
+    position: [lat, lon],
+    title: listing.name || `${listing.building} ${listing.addr_housenumber || ''}`,
+    wayPoints: wayPoints,
+    icon: listing.building || 'home'
+  };
 
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {listing.name || `${listing.building} ${listing.addr_housenumber || ''}`}
-          </Text>
-          <Text style={styles.subtitle}>
-            {listing.addr_street || 'Brak adresu'}
-          </Text>
+  return (
+    <View className="absolute bottom-5 left-0 right-0 items-center justify-center z-50">
+      <View className="bg-white rounded-xl w-[90%] max-w-[400px] overflow-hidden shadow-lg">
+        <View className="w-full h-[200px] relative">
+          <PopupMap
+            marker={marker}
+            center={[lat, lon]}
+            zoom={17}
+          />
+          <TouchableOpacity 
+            className="absolute top-3 right-3 z-10"
+            onPress={onClose}
+          >
+            <View className="w-8 h-8 rounded-full bg-white items-center justify-center shadow-sm">
+              <MaterialCommunityIcons name="close" size={20} color="black" />
+            </View>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.details}>
-          {listing.amenity && (
-            <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="store" size={20} color="#666" />
-              <Text style={styles.detailText}>Typ: {listing.amenity}</Text>
-            </View>
-          )}
-          
-          {listing.building && (
-            <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="home" size={20} color="#666" />
-              <Text style={styles.detailText}>Budynek: {listing.building}</Text>
-            </View>
-          )}
+        <View className="p-4">
+          <View className="mb-4">
+            <Text className="text-lg font-bold mb-1">
+              {listing.name || `${listing.building} ${listing.addr_housenumber || ''}`}
+            </Text>
+            <Text className="text-sm text-gray-500">
+              {listing.addr_street || 'Brak adresu'}
+            </Text>
+          </View>
 
-          {listing.addr_housename && (
-            <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="tag" size={20} color="#666" />
-              <Text style={styles.detailText}>Nazwa budynku: {listing.addr_housename}</Text>
-            </View>
-          )}
+          <View className="space-y-2">
+            {listing.amenity && (
+              <View className="flex-row items-center space-x-2">
+                <MaterialCommunityIcons name="store" size={20} color="#666" />
+                <Text className="text-sm text-gray-700">Typ: {listing.amenity}</Text>
+              </View>
+            )}
+            
+            {listing.building && (
+              <View className="flex-row items-center space-x-2">
+                <MaterialCommunityIcons name="home" size={20} color="#666" />
+                <Text className="text-sm text-gray-700">Budynek: {listing.building}</Text>
+              </View>
+            )}
 
-          {listing.way_area && (
-            <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="ruler-square" size={20} color="#666" />
-              <Text style={styles.detailText}>Powierzchnia: {Math.round(listing.way_area)} m²</Text>
-            </View>
-          )}
+            {listing.addr_housename && (
+              <View className="flex-row items-center space-x-2">
+                <MaterialCommunityIcons name="tag" size={20} color="#666" />
+                <Text className="text-sm text-gray-700">Nazwa budynku: {listing.addr_housename}</Text>
+              </View>
+            )}
 
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="pound" size={20} color="#666" />
-            <Text style={styles.detailText}>OSM ID: {listing.osm_id}</Text>
+            {listing.way_area && (
+              <View className="flex-row items-center space-x-2">
+                <MaterialCommunityIcons name="ruler-square" size={20} color="#666" />
+                <Text className="text-sm text-gray-700">Powierzchnia: {Math.round(listing.way_area)} m²</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  content: {
-    padding: 16,
-  },
-  closeButton: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-    zIndex: 1,
-  },
-  header: {
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
-  details: {
-    gap: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#333',
-  },
-});
 
 export default ListingPopup;

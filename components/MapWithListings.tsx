@@ -122,6 +122,11 @@ export default function MapWithListings({
     }, 100);
   };
 
+  const getActiveIcon = () => {
+    const category = categories.find(cat => cat.label === activeCategory);
+    return category?.icon || 'map';
+  };
+
   const markers = listings
     .map(listing => {
       try {
@@ -134,7 +139,7 @@ export default function MapWithListings({
             listing.name ||
             `${listing.building} ${listing.addr_housenumber}`,
           wayPoints,
-          icon: getCategoryIcon(listing.building),
+          icon: getActiveIcon()
         };
       } catch (e) {
         console.error('Błąd parsowania center_point:', e);

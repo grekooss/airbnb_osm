@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
-import React, { useCallback, useMemo, forwardRef, ForwardRefRenderFunction } from 'react';
+import React, { forwardRef, ForwardRefRenderFunction, useCallback, useMemo } from 'react';
 import { Text, View } from 'react-native';
 import { ListingModel } from '../types/listing';
 
@@ -10,7 +10,7 @@ interface ListingsBottomSheetProps {
 
 const ListingsBottomSheetComponent: ForwardRefRenderFunction<BottomSheet, ListingsBottomSheetProps> = 
   ({ listings }, ref) => {
-    const snapPoints = useMemo(() => ['10%', '50%', '90%'], []);
+    const snapPoints = useMemo(() => ['10%', '100%'], []);
 
     const handleSheetChanges = useCallback((index: number) => {
       console.log('handleSheetChanges', index);
