@@ -13,7 +13,6 @@ const IndexPage = () => {
     <View className="flex-1">
       <Stack.Screen options={{ header: () => <ExploreHeader /> }} />
       <MapWithListings onListingsChange={setListings} />
-      <ListingsBottomSheet listings={listings} />
     </View>
   );
 };

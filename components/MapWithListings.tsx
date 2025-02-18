@@ -100,20 +100,26 @@ export default function MapWithListings({
   const handleMarkerPress = (marker: Marker) => {
     const listing = listings.find(l => l.osm_id === marker.id);
     if (listing) {
+      // Najpierw ustawiamy selectedListing
       setSelectedListing(listing);
-      // Chowamy BottomSheet
-      if (bottomSheetRef.current) {
-        bottomSheetRef.current.close();
-      }
+      // Następnie z małym opóźnieniem chowamy BottomSheet
+      setTimeout(() => {
+        if (bottomSheetRef.current) {
+          bottomSheetRef.current.close();
+        }
+      }, 100);
     }
   };
 
   const handlePopupClose = () => {
+    // Najpierw czyścimy selectedListing
     setSelectedListing(null);
-    // Wysuwamy BottomSheet
-    if (bottomSheetRef.current) {
-      bottomSheetRef.current.snapToIndex(0);
-    }
+    // Następnie z małym opóźnieniem wysuwamy BottomSheet
+    setTimeout(() => {
+      if (bottomSheetRef.current) {
+        bottomSheetRef.current.snapToIndex(0);
+      }
+    }, 100);
   };
 
   const markers = listings
@@ -148,7 +154,7 @@ export default function MapWithListings({
           zoom: 13,
         }}
       />
-      <ListingsBottomSheet 
+      <ListingsBottomSheet
         ref={bottomSheetRef}
         listings={listings}
       />
