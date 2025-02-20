@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { View, StyleSheet, PanResponder } from 'react-native';
+import { View, StyleSheet, PanResponder, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Marker } from '../types/map';
+import { router } from 'expo-router';
 
 interface PopupMapProps {
   marker: Marker;
@@ -22,17 +23,28 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
   const startXRef = useRef(0);
   const [key, setKey] = useState(0);
 
+  const handlePress = () => {
+    router.push(`/listing/${marker.id}`);
+  };
+
   const getCurrentZoom = () => {
     return currentMapStyle === 'satellite' ? 19 : 18;
   };
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return Math.abs(gestureState.dx) > 10;
+    },
     onPanResponderGrant: (evt) => {
       startXRef.current = evt.nativeEvent.pageX;
     },
-    onPanResponderRelease: (evt) => {
+    onPanResponderRelease: (evt, gestureState) => {
+      if (Math.abs(gestureState.dx) <= 10) {
+        handlePress();
+        return;
+      }
+      
       const dx = evt.nativeEvent.pageX - startXRef.current;
       if (Math.abs(dx) > SWIPE_THRESHOLD) {
         const direction = dx > 0 ? 'prev' : 'next';
@@ -150,16 +162,19 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
           key={key}
           source={{ html: mapHTML }}
           style={styles.webView}
+          scrollEnabled={false}
+          onNavigationStateChange={(event) => {
+            if (event.url !== 'about:blank') {
+              handlePress();
+            }
+          }}
         />
       </View>
       <View style={styles.dotsContainer}>
-        {['satellite', 'carto', 'osm'].map((style) => (
+        {['satellite', 'carto', 'osm'].map((style, index) => (
           <View
             key={style}
-            style={[
-              styles.dot,
-              currentMapStyle === style && styles.activeDot
-            ]}
+            style={[styles.dot, currentMapStyle === style && styles.activeDot]}
           />
         ))}
       </View>
