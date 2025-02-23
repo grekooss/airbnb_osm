@@ -1,4 +1,5 @@
 import { database } from '@/lib/appwrite';
+import BottomSheet from '@gorhom/bottom-sheet';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Query } from 'react-native-appwrite';
@@ -6,10 +7,9 @@ import { categories } from '../constants/categories';
 import { useCategory } from '../context/CategoryContext';
 import { ListingModel } from '../types/listing';
 import { MapBounds, Marker } from '../types/map';
-import ListingsMap from './ListingsMap';
 import ListingPopup from './ListingPopup';
 import ListingsBottomSheet from './ListingsBottomSheet';
-import BottomSheet from '@gorhom/bottom-sheet';
+import ListingsMap from './ListingsMap';
 
 const getCategoryIcon = (category: string): string => {
   const foundCategory = categories.find(
@@ -155,7 +155,7 @@ export default function MapWithListings({
         onBoundsChange={handleBoundsChange}
         onMarkerPress={handleMarkerPress}
         initialState={{
-          center: [54.0381, 21.7644],
+          center: [54.12840259892358,21.77175386664063],
           zoom: 13,
         }}
       />

@@ -1,14 +1,17 @@
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet, PanResponder, TouchableOpacity } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, PanResponder, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Marker } from '../types/map';
 import { router } from 'expo-router';
+import { storage, getPhotosForMarker } from '../lib/appwrite';
 
 interface PopupMapProps {
   marker: Marker;
   center: [number, number];
   zoom: number;
 }
+
+type ViewMode = 'appwrite-image' | 'satellite' | 'carto' | 'osm';
 
 const mapStyles = {
   carto: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -19,16 +22,86 @@ const mapStyles = {
 const SWIPE_THRESHOLD = 50;
 
 export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
-  const [currentMapStyle, setCurrentMapStyle] = useState<'satellite' | 'carto' | 'osm'>('satellite');
-  const startXRef = useRef(0);
+  const [currentMode, setCurrentMode] = useState<ViewMode>('satellite');
+  const [appwriteImages, setAppwriteImages] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [key, setKey] = useState(0);
+  const startXRef = useRef(0);
+
+  useEffect(() => {
+    console.log('PopupMap mounted with marker:', marker);
+    const loadImages = async () => {
+      setIsLoading(true);
+      try {
+        const images = await getPhotosForMarker('photos', marker.id);
+        console.log(`Found ${images.length} images for marker ${marker.id}`);
+        
+        setAppwriteImages(images);
+        if (images.length > 0) {
+          setCurrentMode('appwrite-image');
+          setCurrentImageIndex(0);
+        }
+      } catch (error) {
+        console.error('Error loading images:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadImages();
+  }, [marker.id]);
 
   const handlePress = () => {
     router.push(`/listing/${marker.id}`);
   };
 
   const getCurrentZoom = () => {
-    return currentMapStyle === 'satellite' ? 19 : 18;
+    return currentMode === 'satellite' ? 19 : 18;
+  };
+
+  const changeMode = (direction: 'prev' | 'next') => {
+    // Tworzymy pełną sekwencję widoków
+    const allModes: (ViewMode | 'appwrite-image')[] = [];
+    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm'];
+    
+    // Dodajemy zdjęcia z Appwrite jeśli istnieją
+    if (appwriteImages.length > 0) {
+      for (let i = 0; i < appwriteImages.length; i++) {
+        allModes.push('appwrite-image');
+      }
+    }
+    
+    // Dodajemy tryby map
+    allModes.push(...mapModes);
+    
+    // Znajdujemy aktualną pozycję w sekwencji
+    let currentPosition = 0;
+    if (currentMode === 'appwrite-image') {
+      currentPosition = currentImageIndex;
+    } else {
+      const mapIndex = mapModes.indexOf(currentMode);
+      currentPosition = appwriteImages.length + mapIndex;
+    }
+    
+    // Obliczamy nową pozycję
+    let newPosition;
+    if (direction === 'next') {
+      newPosition = (currentPosition + 1) % allModes.length;
+    } else {
+      newPosition = (currentPosition - 1 + allModes.length) % allModes.length;
+    }
+    
+    // Ustawiamy nowy tryb
+    if (newPosition < appwriteImages.length) {
+      setCurrentMode('appwrite-image');
+      setCurrentImageIndex(newPosition);
+    } else {
+      const mapIndex = newPosition - appwriteImages.length;
+      setCurrentMode(mapModes[mapIndex]);
+      setCurrentImageIndex(0);
+      setKey(prev => prev + 1);
+    }
   };
 
   const panResponder = PanResponder.create({
@@ -48,7 +121,7 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
       const dx = evt.nativeEvent.pageX - startXRef.current;
       if (Math.abs(dx) > SWIPE_THRESHOLD) {
         const direction = dx > 0 ? 'prev' : 'next';
-        changeMapStyle(direction);
+        changeMode(direction);
       }
     },
   });
@@ -110,9 +183,9 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
             markerZoomAnimation: false
           });
           
-          L.tileLayer('${mapStyles[currentMapStyle]}', {
+          L.tileLayer('${mapStyles[currentMode === 'appwrite-image' ? 'satellite' : currentMode]}', {
             maxZoom: 19,
-            attribution: '${getMapAttribution(currentMapStyle)}',
+            attribution: '${getMapAttribution(currentMode === 'appwrite-image' ? 'satellite' : currentMode)}',
             fadeAnimation: false
           }).addTo(map);
 
@@ -139,66 +212,98 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
     </html>
   `;
 
-  const changeMapStyle = (direction: 'next' | 'prev') => {
-    const styles = ['satellite', 'carto', 'osm'] as const;
-    const currentIndex = styles.indexOf(currentMapStyle);
-    let newIndex;
+  const renderDots = () => {
+    const allModes: (ViewMode | 'appwrite-image')[] = [];
+    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm'];
     
-    if (direction === 'next') {
-      newIndex = (currentIndex + 1) % styles.length;
-    } else {
-      newIndex = (currentIndex - 1 + styles.length) % styles.length;
+    // Dodajemy zdjęcia z Appwrite jeśli istnieją
+    if (appwriteImages.length > 0) {
+      for (let i = 0; i < appwriteImages.length; i++) {
+        allModes.push('appwrite-image');
+      }
     }
     
-    setCurrentMapStyle(styles[newIndex]);
-    // Wymuszamy przeładowanie WebView przy zmianie stylu
-    setKey(prev => prev + 1);
+    // Dodajemy tryby map
+    allModes.push(...mapModes);
+
+    return (
+      <View style={styles.dotsContainer}>
+        {allModes.map((mode, index) => (
+          <View
+            key={`${mode}-${index}`}
+            style={[
+              styles.dot,
+              (mode === 'appwrite-image' && currentMode === 'appwrite-image' && currentImageIndex === index) ||
+              (mode !== 'appwrite-image' && currentMode === mode)
+                ? styles.activeDot
+                : undefined
+            ]}
+          />
+        ))}
+      </View>
+    );
   };
 
   return (
     <View style={styles.container}>
-      <View {...panResponder.panHandlers} style={StyleSheet.absoluteFill}>
-        <WebView
-          key={key}
-          source={{ html: mapHTML }}
-          style={styles.webView}
-          scrollEnabled={false}
-          onNavigationStateChange={(event) => {
-            if (event.url !== 'about:blank') {
-              handlePress();
-            }
-          }}
-        />
-      </View>
-      <View style={styles.dotsContainer}>
-        {['satellite', 'carto', 'osm'].map((style, index) => (
-          <View
-            key={style}
-            style={[styles.dot, currentMapStyle === style && styles.activeDot]}
-          />
-        ))}
-      </View>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0000ff" />
+        </View>
+      ) : (
+        <View style={styles.mapContainer} {...panResponder.panHandlers}>
+          {currentMode === 'appwrite-image' ? (
+            <Image
+              source={{ uri: appwriteImages[currentImageIndex] }}
+              style={styles.image}
+              resizeMode="cover"
+              onError={(error) => {
+                console.error('Image loading error:', error.nativeEvent.error);
+                setCurrentMode('satellite');
+              }}
+            />
+          ) : (
+            <WebView
+              key={key}
+              source={{ html: mapHTML }}
+              style={styles.webView}
+            />
+          )}
+          {renderDots()}
+        </View>
+      )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#f0f0f0',
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
   webView: {
     backgroundColor: '#f0f0f0',
   },
   dotsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
     gap: 8,
   },
   dot: {
@@ -208,6 +313,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   activeDot: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'white',
   },
 });
