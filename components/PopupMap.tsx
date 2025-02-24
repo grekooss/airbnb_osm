@@ -192,10 +192,10 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
           const wayPoints = ${JSON.stringify(marker.wayPoints)};
           if (wayPoints && wayPoints.length > 0) {
             const polygon = L.polygon(wayPoints, {
-              color: '#FF385C',
-              weight: 2,
+              color: '${currentMode === 'satellite' ? 'transparent' : '#FF385C'}',
+              weight: ${currentMode === 'satellite' ? 0 : 2},
               fillColor: '#FF385C',
-              fillOpacity: 0.3
+              fillOpacity: ${currentMode === 'satellite' ? 0.2 : 0.3}
             }).addTo(map);
 
             map.fitBounds(polygon.getBounds(), {
