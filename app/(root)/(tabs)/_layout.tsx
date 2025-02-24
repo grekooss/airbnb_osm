@@ -23,7 +23,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarLabel: 'Explore',
+          tabBarLabel: 'Odkrywaj',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="search" size={24} color={color} />
           ),
@@ -32,7 +32,8 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="wishlists"
         options={{
-          tabBarLabel: 'Wishlist',
+          headerShown: false,
+          tabBarLabel: 'Listy życzeń',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="heart-outline" size={24} color={color} />
           ),
@@ -41,7 +42,8 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="trips"
         options={{
-          tabBarLabel: 'Trips',
+          headerShown: false,
+          tabBarLabel: 'Podróże',
           tabBarIcon: ({ color, size }) => (
             <FontAwesome5 name="airbnb" size={size} color={color} />
           ),
@@ -50,7 +52,8 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="inbox"
         options={{
-          tabBarLabel: 'Inbox',
+          headerShown: false,
+          tabBarLabel: 'Wiadomości',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbox-outline" size={24} color={color} />
           ),
@@ -59,7 +62,8 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarLabel: 'Profile',
+          headerShown: false,
+          tabBarLabel: 'Zaloguj',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-circle-outline" size={24} color={color} />
           ),
