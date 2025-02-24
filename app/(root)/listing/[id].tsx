@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Text, View, Pressable, ActivityIndicator, Share, Dimensions, ScrollView } from 'react-native';
+import { Text, View, Pressable, ActivityIndicator, Share, Dimensions, ScrollView, StatusBar, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PopupMap from '@/components/PopupMap';
 import { Marker } from '@/types/map';
@@ -9,16 +9,16 @@ import { database, getPhotosForMarker } from '@/lib/appwrite';
 import { Query } from 'react-native-appwrite';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   interpolate,
-  useAnimatedScrollHandler,
+  withTiming,
   SlideInDown
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
-const IMG_HEIGHT = 300;
+const IMG_HEIGHT = 320;
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
@@ -42,33 +42,29 @@ const ListingPage = () => {
     }
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
   });
 
-  const mapAnimatedStyle = useAnimatedStyle(() => {
+  const contentAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
         {
           translateY: interpolate(
             scrollY.value,
-            [-IMG_HEIGHT, 0, IMG_HEIGHT],
-            [-IMG_HEIGHT / 2, 0, IMG_HEIGHT * 0.75]
+            [0, 350],
+            [0, -350],
+            'clamp'
           ),
         },
-        {
-          scale: interpolate(scrollY.value, [-IMG_HEIGHT, 0, IMG_HEIGHT], [2, 1, 1]),
-        },
       ],
-    };
-  });
-
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: interpolate(scrollY.value, [0, IMG_HEIGHT / 1.5], [0, 1]),
-      backgroundColor: 'white',
+      zIndex: 1,
     };
   });
 
@@ -108,6 +104,12 @@ const ListingPage = () => {
     }
   }, [id]);
 
+  useEffect(() => {
+    return () => {
+      StatusBar.setBarStyle('dark-content');
+    };
+  }, []);
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -142,52 +144,51 @@ const ListingPage = () => {
   };
 
   return (
-    <View className="flex-1 bg-neutral-10">
-      {/* Przyciski nawigacji */}
+    <View className="flex-1" style={{ backgroundColor: 'white' }}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      
       <Animated.View 
-        className="absolute top-0 left-0 right-0 z-10"
-        style={headerAnimatedStyle}
+        style={[
+          { 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: IMG_HEIGHT,
+            zIndex: 1
+          }
+        ]}
       >
-        <SafeAreaView className="flex-row justify-between items-center px-4 pt-2">
-          <Pressable 
-            className="w-9 h-9 bg-neutral-10/90 rounded-full items-center justify-center"
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FF385C" />
-          </Pressable>
-          
-          <View className="flex-row gap-4">
-            <Pressable 
-              className="w-9 h-9 bg-neutral-10/90 rounded-full items-center justify-center"
-              onPress={shareListing}
-            >
-              <Ionicons name="share-outline" size={24} color="#FF385C" />
-            </Pressable>
-            <Pressable className="w-9 h-9 bg-neutral-10/90 rounded-full items-center justify-center">
-              <Ionicons name="heart-outline" size={24} color="#FF385C" />
-            </Pressable>
-          </View>
-        </SafeAreaView>
+        <PopupMap 
+          marker={marker} 
+          center={[lat, lon]}
+          zoom={17}
+        />
+        <Pressable 
+          onPress={handleGoBack}
+          className="absolute top-16 left-4 bg-white rounded-full p-2 shadow-md z-50"
+        >
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </Pressable>
+        <Pressable 
+          onPress={shareListing}
+          className="absolute top-16 right-4 bg-white rounded-full p-2 shadow-md z-50"
+        >
+          <Ionicons name="share-outline" size={24} color="black" />
+        </Pressable>
       </Animated.View>
 
       <AnimatedScrollView
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        className="flex-1"
+        contentContainerStyle={{
+          paddingTop: IMG_HEIGHT
+        }}
       >
-        {/* Mapa z animacją */}
         <Animated.View 
-          className="w-full h-[300px]"
-          style={mapAnimatedStyle}
+          className="bg-white"
+          style={contentAnimatedStyle}
         >
-          <PopupMap
-            marker={marker}
-            center={[lat, lon]}
-            zoom={17}
-          />
-        </Animated.View>
-
-        <View className="bg-neutral-10 -mt-5 rounded-t-3xl">
           <View className="p-5">
             <Text className="text-2xl font-bold">
               {listing.name || `${listing.building} ${listing.addr_housenumber || ''}`}
@@ -229,40 +230,42 @@ const ListingPage = () => {
               </View>
             </View>
 
-            <Pressable 
-              className="bg-primary-60 p-4 rounded-lg items-center mt-2 mb-5"
-              onPress={() => {
-                router.push({
-                  pathname: "/(root)/(tabs)",
-                  params: { markerId: id }
-                });
-              }}
-            >
-              <Text className="text-neutral-10 text-base font-bold">
-                Zobacz na mapie
+            <View className="border-t border-neutral-30 pt-6">
+              <Text className="text-neutral-100 text-xl font-bold mb-2">
+                Opis obiektu
               </Text>
-            </Pressable>
+              <Text className="text-neutral-60">
+                Wyobraź sobie poranek, gdy budzisz się w drewnianej chacie pośród majestatycznych gór. Przez duże okna wpada złote światło, a przed Tobą rozpościera się niepowtarzalny widok na zielone doliny i skaliste szczyty otulone delikatną mgłą. Powietrze jest rześkie i czyste, przesiąknięte zapachem lasu i żywicy, a jedynym dźwiękiem, jaki słyszysz, jest śpiew ptaków i szum pobliskiego strumienia.{'\n\n'}
+                Nasza drewniana chata to idealne miejsce dla tych, którzy pragną uciec od miejskiego zgiełku i zanurzyć się w naturze. Wykonana z naturalnych materiałów, łączy tradycyjny, górski styl z nowoczesnym komfortem. W środku czeka na Ciebie przytulny salon z kominkiem, którego ciepło uprzyjemni chłodne wieczory. Duży, drewniany taras to natomiast idealne miejsce, by delektować się poranną kawą lub podziwiać zachód słońca, gdy niebo nabiera ognistych barw.{'\n\n'}
+                Bez względu na porę roku, widoki z tej chaty zapierają dech w piersiach. Zimą otaczające wzgórza pokrywają się śnieżnym puchem, tworząc bajkowy krajobraz, który zachęca do długich spacerów lub wypadów na narty. Wiosną i latem przyroda budzi się do życia, a soczysta zieleń drzew i łąk wypełnionych kwiatami sprawia, że każda chwila spędzona tutaj jest pełna harmonii. Jesień natomiast maluje góry złotem, czerwienią i brązem, czyniąc każdą panoramę niemal malarskim arcydziełem.{'\n\n'}
+                Po dniu spędzonym na odkrywaniu uroków górskiego otoczenia możesz zrelaksować się w wygodnej sypialni z widokiem na gwiaździste niebo lub spędzić wieczór przy ognisku, słuchając dźwięków natury. To miejsce stworzone z myślą o tych, którzy szukają spokoju, inspiracji i bliskości z naturą.{'\n\n'}
+                Jeśli marzysz o odpoczynku w wyjątkowym miejscu, gdzie czas płynie wolniej, a widoki zapierają dech w piersiach, nasza drewniana chata w górach czeka właśnie na Ciebie!
+              </Text>
+            </View>
           </View>
-        </View>
+        </Animated.View>
       </AnimatedScrollView>
 
       <Animated.View 
-        className="absolute bottom-0 left-0 right-0 bg-neutral-10 border-t border-neutral-30 p-4"
+        className="absolute bottom-0 left-0 right-0 bg-white border-t border-neutral-30"
         entering={SlideInDown}
       >
-        <Pressable 
-          className="bg-primary-60 p-4 rounded-lg items-center"
-          onPress={() => {
-            router.push({
-              pathname: "/(root)/(tabs)",
-              params: { markerId: id }
-            });
-          }}
-        >
-          <Text className="text-neutral-10 text-base font-bold">
-            Zobacz na mapie
-          </Text>
-        </Pressable>
+        <View className="flex-row justify-between items-center bg-neutral-10 p-4">
+          <View>
+            <Text className="text-neutral-100 text-2xl font-bold">837 zł noc</Text>
+            <Text className="text-neutral-60">29 mar–3 kwi</Text>
+          </View>
+          <Pressable 
+            className="bg-primary-60 px-6 py-3 rounded-lg"
+            onPress={() => {
+              console.log('Kliknięto przycisk rezerwacji dla id:', id);
+            }}
+          >
+            <Text className="text-neutral-10 text-base font-bold">
+              Rezerwuj
+            </Text>
+          </Pressable>
+        </View>
       </Animated.View>
     </View>
   );

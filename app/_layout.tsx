@@ -47,29 +47,12 @@ function RootLayoutNav() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#fff',
-        },
-        headerTitleStyle: {
-          fontFamily: 'Cereal-Medium',
-        },
+        headerShown: false, // Domyślnie wyłączamy nagłówek dla wszystkich ekranów
+        animation: 'slide_from_right'
       }}
     >
-      <Stack.Screen name="(root)/(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="(root)/(modals)"
-        options={{
-          headerShown: false,
-          presentation: 'containedModal',
-          animation: 'slide_from_bottom',
-        }}
-      />
-      <Stack.Screen
-        name="(root)/listing/[id]"
-        options={{
-          headerTitle: '',
-        }}
-      />
+      <Stack.Screen name="(root)" />
+      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }
