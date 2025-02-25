@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, PanResponder, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, PanResponder, TouchableOpacity, Image, ActivityIndicator, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Marker } from '../types/map';
 import { router } from 'expo-router';
 import { storage, getPhotosForMarker } from '../lib/appwrite';
+import { mapConfig, getGoogle3DMapHtml } from '../config/maps';
 
 interface PopupMapProps {
   marker: Marker;
@@ -11,21 +12,16 @@ interface PopupMapProps {
   zoom: number;
 }
 
-type ViewMode = 'appwrite-image' | 'satellite' | 'carto' | 'osm';
-
-const mapStyles = {
-  carto: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  osm: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-};
+type ViewMode = 'appwrite-image' | 'satellite' | 'carto' | 'osm' | 'google' | 'google3d';
 
 const SWIPE_THRESHOLD = 50;
 
 export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
-  const [currentMode, setCurrentMode] = useState<ViewMode>('satellite');
+  const [currentMode, setCurrentMode] = useState<ViewMode>('google');
   const [appwriteImages, setAppwriteImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [key, setKey] = useState(0);
   const startXRef = useRef(0);
 
@@ -52,6 +48,23 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
     loadImages();
   }, [marker.id]);
 
+  useEffect(() => {
+    if (currentMode === 'google') {
+      try {
+        const [lat, lng] = center;
+        const url = mapConfig.mapStyles.google
+          .replace('{lat}', lat.toString())
+          .replace('{lng}', lng.toString())
+          .replace('{zoom}', zoom.toString());
+        setMapError(null);
+      } catch (error) {
+        console.error('Google Maps error:', error);
+        setMapError('Błąd konfiguracji Google Maps API. Sprawdź klucz API.');
+        setCurrentMode('satellite'); // Fallback to satellite view
+      }
+    }
+  }, [currentMode]);
+
   const handlePress = () => {
     router.push(`/listing/${marker.id}`);
   };
@@ -63,7 +76,7 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
   const changeMode = (direction: 'prev' | 'next') => {
     // Tworzymy pełną sekwencję widoków
     const allModes: (ViewMode | 'appwrite-image')[] = [];
-    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm'];
+    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm', 'google', 'google3d'];
     
     // Dodajemy zdjęcia z Appwrite jeśli istnieją
     if (appwriteImages.length > 0) {
@@ -126,6 +139,20 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
     },
   });
 
+  const getCurrentMapStyle = () => {
+    if (currentMode === 'google') {
+      const [lat, lng] = center;
+      return mapConfig.mapStyles.google
+        .replace('{lat}', lat.toString())
+        .replace('{lng}', lng.toString())
+        .replace('{zoom}', zoom.toString());
+    }
+    if (currentMode === 'appwrite-image') {
+      return mapConfig.mapStyles.satellite;
+    }
+    return mapConfig.mapStyles[currentMode as keyof typeof mapConfig.mapStyles];
+  };
+
   const getMapAttribution = (style: string) => {
     switch (style) {
       case 'carto':
@@ -137,84 +164,86 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
     }
   };
 
-  const mapHTML = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <style>
-          html, body { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%; 
-            height: 100%; 
-          }
-          #map { 
-            width: 100%; 
-            height: 100%; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-          }
-          .leaflet-container {
-            background: #f0f0f0;
-          }
-          .leaflet-fade-anim .leaflet-tile,.leaflet-zoom-anim .leaflet-zoom-animated {
-            will-change: auto !important;
-            transition: none !important;
-          }
-        </style>
-      </head>
-      <body>
-        <div id="map"></div>
-        <script>
-          var map = L.map('map', {
-            center: [${center[0]}, ${center[1]}],
-            zoom: ${getCurrentZoom()},
-            zoomControl: false,
-            dragging: false,
-            scrollWheelZoom: false,
-            touchZoom: false,
-            doubleClickZoom: false,
-            fadeAnimation: false,
-            zoomAnimation: false,
-            markerZoomAnimation: false
-          });
-          
-          L.tileLayer('${mapStyles[currentMode === 'appwrite-image' ? 'satellite' : currentMode]}', {
-            maxZoom: 19,
-            attribution: '${getMapAttribution(currentMode === 'appwrite-image' ? 'satellite' : currentMode)}',
-            fadeAnimation: false
-          }).addTo(map);
-
-          const wayPoints = ${JSON.stringify(marker.wayPoints)};
-          if (wayPoints && wayPoints.length > 0) {
-            const polygon = L.polygon(wayPoints, {
-              color: '${currentMode === 'satellite' ? 'transparent' : '#FF385C'}',
-              weight: ${currentMode === 'satellite' ? 0 : 2},
-              fillColor: '#FF385C',
-              fillOpacity: ${currentMode === 'satellite' ? 0.2 : 0.3}
+  const getMapHtml = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <style>
+            html, body { 
+              margin: 0; 
+              padding: 0; 
+              width: 100%; 
+              height: 100%; 
+            }
+            #map { 
+              width: 100%; 
+              height: 100%; 
+              position: absolute; 
+              top: 0; 
+              left: 0; 
+            }
+            .leaflet-container {
+              background: #f0f0f0;
+            }
+            .leaflet-fade-anim .leaflet-tile,.leaflet-zoom-anim .leaflet-zoom-animated {
+              will-change: auto !important;
+              transition: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <script>
+            var map = L.map('map', {
+              center: [${center[0]}, ${center[1]}],
+              zoom: ${getCurrentZoom()},
+              zoomControl: false,
+              dragging: false,
+              scrollWheelZoom: false,
+              touchZoom: false,
+              doubleClickZoom: false,
+              fadeAnimation: false,
+              zoomAnimation: false,
+              markerZoomAnimation: false
+            });
+            
+            L.tileLayer('${getCurrentMapStyle()}', {
+              maxZoom: 19,
+              attribution: '${getMapAttribution(currentMode === 'appwrite-image' ? 'satellite' : currentMode)}',
+              fadeAnimation: false
             }).addTo(map);
 
-            map.fitBounds(polygon.getBounds(), {
-              padding: [20, 20],
-              animate: false,
-              maxZoom: ${getCurrentZoom()}
-            });
+            const wayPoints = ${JSON.stringify(marker.wayPoints)};
+            if (wayPoints && wayPoints.length > 0) {
+              const polygon = L.polygon(wayPoints, {
+                color: '${currentMode === 'satellite' ? 'transparent' : '#FF385C'}',
+                weight: ${currentMode === 'satellite' ? 0 : 2},
+                fillColor: '#FF385C',
+                fillOpacity: ${currentMode === 'satellite' ? 0.2 : 0.3}
+              }).addTo(map);
 
-            // Ustaw odpowiedni zoom po dopasowaniu do granic
-            map.setZoom(${getCurrentZoom()}, { animate: false });
-          }
-        </script>
-      </body>
-    </html>
-  `;
+              map.fitBounds(polygon.getBounds(), {
+                padding: [20, 20],
+                animate: false,
+                maxZoom: ${getCurrentZoom()}
+              });
+
+              // Ustaw odpowiedni zoom po dopasowaniu do granic
+              map.setZoom(${getCurrentZoom()}, { animate: false });
+            }
+          </script>
+        </body>
+      </html>
+    `;
+  };
 
   const renderDots = () => {
     const allModes: (ViewMode | 'appwrite-image')[] = [];
-    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm'];
+    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm', 'google', 'google3d'];
     
     // Dodajemy zdjęcia z Appwrite jeśli istnieją
     if (appwriteImages.length > 0) {
@@ -244,6 +273,43 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
     );
   };
 
+  const renderMap = () => {
+    if (currentMode === 'google') {
+      return (
+        <Image
+          source={{ uri: getCurrentMapStyle() }}
+          style={styles.mapImage}
+          resizeMode="cover"
+        />
+      );
+    }
+
+    if (currentMode === 'google3d') {
+      const [lat, lng] = center;
+      return (
+        <WebView
+          key={key}
+          source={{ html: getGoogle3DMapHtml(lat, lng, zoom) }}
+          style={styles.webView}
+          scrollEnabled={false}
+          onError={(error) => {
+            console.error('Google Maps 3D error:', error);
+            setMapError('Błąd ładowania mapy 3D');
+            setCurrentMode('google');
+          }}
+        />
+      );
+    }
+    
+    return (
+      <WebView
+        key={key}
+        source={{ html: getMapHtml() }}
+        style={styles.webView}
+      />
+    );
+  };
+
   return (
     <View style={styles.container}>
       {isLoading ? (
@@ -252,22 +318,11 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
         </View>
       ) : (
         <View style={styles.mapContainer} {...panResponder.panHandlers}>
-          {currentMode === 'appwrite-image' ? (
-            <Image
-              source={{ uri: appwriteImages[currentImageIndex] }}
-              style={styles.image}
-              resizeMode="cover"
-              onError={(error) => {
-                console.error('Image loading error:', error.nativeEvent.error);
-                setCurrentMode('satellite');
-              }}
-            />
-          ) : (
-            <WebView
-              key={key}
-              source={{ html: mapHTML }}
-              style={styles.webView}
-            />
+          {renderMap()}
+          {mapError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{mapError}</Text>
+            </View>
           )}
           {renderDots()}
         </View>
@@ -289,7 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  image: {
+  mapImage: {
     width: '100%',
     height: '100%',
   },
@@ -314,5 +369,18 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     backgroundColor: 'white',
+  },
+  errorContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 0, 0, 0.7)',
+    padding: 10,
+    borderRadius: 10,
+  },
+  errorText: {
+    color: 'white',
+    fontSize: 16,
   },
 });

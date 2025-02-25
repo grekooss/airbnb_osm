@@ -1,5 +1,10 @@
 export const categories = [
   {
+    label: "hotel",
+    icon: "bed",
+    description: "Hotels",
+  },
+  {
     label: "apartments",
     icon: "business",
     description: "Apartments",
@@ -8,11 +13,6 @@ export const categories = [
     label: "house",
     icon: "home",
     description: "Houses",
-  },
-  {
-    label: "hotel",
-    icon: "bed",
-    description: "Hotels",
   },
   {
     label: "villa",

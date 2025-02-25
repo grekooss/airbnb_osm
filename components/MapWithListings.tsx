@@ -53,34 +53,30 @@ export default function MapWithListings({
         [
           // Filtrujemy po kategorii budynku
           Query.equal('building', category),
+          // Filtrujemy po szerokości geograficznej (latitude)
+          Query.greaterThanEqual('latitude', bounds?.south || 0),
+          Query.lessThanEqual('latitude', bounds?.north || 90),
+          // Filtrujemy po długości geograficznej (longitude)
+          Query.greaterThanEqual('longitude', bounds?.west || 0),
+          Query.lessThanEqual('longitude', bounds?.east || 180),
           Query.limit(1000), // Limit punktów do wyświetlenia
         ]
       );
 
-      // Filtrujemy punkty po stronie klienta, jeśli mamy ustawione granice mapy
-      const filteredListings = bounds
-        ? response.documents.filter(listing => {
-            try {
-              const [lat, lon] = JSON.parse(listing.center_point);
-              return (
-                lat >= bounds.south &&
-                lat <= bounds.north &&
-                lon >= bounds.west &&
-                lon <= bounds.east
-              );
-            } catch (e) {
-              console.error('Błąd parsowania center_point:', e);
-              return false;
-            }
-          })
-        : response.documents;
-
       console.log(
-        `Znaleziono ${filteredListings.length} punktów dla kategorii "${category}"`
+        `Znaleziono ${response.documents.length} punktów dla kategorii "${category}" w granicach mapy`
       );
-      setListings(filteredListings);
+      
+      if (response.documents.length === 0) {
+        console.log('Parametry zapytania:', {
+          kategoria: category,
+          granice: bounds
+        });
+      }
+
+      setListings(response.documents);
       if (onListingsChange) {
-        onListingsChange(filteredListings);
+        onListingsChange(response.documents);
       }
     } catch (error) {
       console.error('Błąd podczas pobierania punktów:', error);
@@ -130,7 +126,7 @@ export default function MapWithListings({
   const markers = listings
     .map(listing => {
       try {
-        const [lat, lon] = JSON.parse(listing.center_point);
+        const [lat, lon] = [listing.latitude, listing.longitude];
         const wayPoints = parseWayPoints(listing.way);
         return {
           id: listing.osm_id,
@@ -155,7 +151,7 @@ export default function MapWithListings({
         onBoundsChange={handleBoundsChange}
         onMarkerPress={handleMarkerPress}
         initialState={{
-          center: [54.12840259892358,21.77175386664063],
+          center: [52.22935520604088,21.013063300398382],
           zoom: 13,
         }}
       />
