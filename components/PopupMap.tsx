@@ -4,7 +4,7 @@ import { WebView } from 'react-native-webview';
 import { Marker } from '../types/map';
 import { router } from 'expo-router';
 import { storage, getPhotosForMarker } from '../lib/appwrite';
-import { mapConfig, getGoogle3DMapHtml } from '../config/maps';
+import { mapConfig, getGoogle3DMapHtml, getCesiumMapHtml } from '../config/maps';
 
 interface PopupMapProps {
   marker: Marker;
@@ -12,7 +12,7 @@ interface PopupMapProps {
   zoom: number;
 }
 
-type ViewMode = 'appwrite-image' | 'satellite' | 'carto' | 'osm' | 'google' | 'google3d';
+type ViewMode = 'appwrite-image' | 'satellite' | 'carto' | 'osm' | 'google' | 'google3d' | 'cesium';
 
 const SWIPE_THRESHOLD = 50;
 
@@ -75,8 +75,8 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
 
   const changeMode = (direction: 'prev' | 'next') => {
     // Tworzymy pełną sekwencję widoków
-    const allModes: (ViewMode | 'appwrite-image')[] = [];
-    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm', 'google', 'google3d'];
+    const allModes: ViewMode[] = [];
+    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm', 'google', 'google3d', 'cesium'];
     
     // Dodajemy zdjęcia z Appwrite jeśli istnieją
     if (appwriteImages.length > 0) {
@@ -87,7 +87,7 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
     
     // Dodajemy tryby map
     allModes.push(...mapModes);
-    
+
     // Znajdujemy aktualną pozycję w sekwencji
     let currentPosition = 0;
     if (currentMode === 'appwrite-image') {
@@ -242,8 +242,8 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
   };
 
   const renderDots = () => {
-    const allModes: (ViewMode | 'appwrite-image')[] = [];
-    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm', 'google', 'google3d'];
+    const allModes: ViewMode[] = [];
+    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm', 'google', 'google3d', 'cesium'];
     
     // Dodajemy zdjęcia z Appwrite jeśli istnieją
     if (appwriteImages.length > 0) {
@@ -297,6 +297,42 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
             setMapError('Błąd ładowania mapy 3D');
             setCurrentMode('google');
           }}
+        />
+      );
+    }
+
+    if (currentMode === 'cesium') {
+      const [lat, lng] = center;
+      return (
+        <WebView
+          key={key}
+          source={{ html: getCesiumMapHtml(lat, lng, zoom) }}
+          style={styles.webView}
+          scrollEnabled={false}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          onError={(error) => {
+            console.error('Cesium error:', error);
+            setMapError('Błąd ładowania mapy Cesium');
+            setCurrentMode('osm');
+          }}
+          onMessage={(event) => {
+            console.log('Cesium message:', event.nativeEvent.data);
+          }}
+          injectedJavaScript={`
+            window.onerror = function(message, source, lineno, colno, error) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'error',
+                message: message,
+                source: source,
+                lineno: lineno,
+                colno: colno,
+                error: error ? error.toString() : null
+              }));
+              return true;
+            };
+            true;
+          `}
         />
       );
     }

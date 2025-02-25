@@ -68,3 +68,83 @@ export const getGoogle3DMapHtml = (lat: number, lng: number, zoom: number) => {
     </html>
   `;
 };
+
+export const getCesiumMapHtml = (lat: number, lng: number, zoom: number) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
+        <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+        <style>
+          html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden;
+          }
+          #map { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%; 
+            background: black;
+          }
+          .cesium-widget-credits { 
+            display: none !important; 
+          }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          try {
+            const viewer = new Cesium.Viewer('map', {
+              animation: false,
+              baseLayerPicker: false,
+              fullscreenButton: false,
+              geocoder: false,
+              homeButton: false,
+              infoBox: false,
+              sceneModePicker: false,
+              selectionIndicator: false,
+              timeline: false,
+              navigationHelpButton: false,
+              navigationInstructionsInitiallyVisible: false,
+              scene3DOnly: true
+            });
+
+            viewer.scene.globe.enableLighting = false;
+            viewer.scene.moon.show = false;
+            viewer.scene.sun.show = false;
+            viewer.scene.skyBox.show = false;
+            viewer.scene.backgroundColor = Cesium.Color.BLACK;
+
+            viewer.camera.setView({
+              destination: Cesium.Cartesian3.fromDegrees(${lng}, ${lat}, 500),
+              orientation: {
+                heading: Cesium.Math.toRadians(0),
+                pitch: Cesium.Math.toRadians(-45),
+                roll: 0
+              }
+            });
+
+            viewer.scene.screenSpaceCameraController.enableRotate = false;
+            viewer.scene.screenSpaceCameraController.enableTranslate = false;
+            viewer.scene.screenSpaceCameraController.enableZoom = false;
+            viewer.scene.screenSpaceCameraController.enableTilt = false;
+            viewer.scene.screenSpaceCameraController.enableLook = false;
+
+            window.ReactNativeWebView.postMessage('Cesium initialized successfully');
+          } catch (error) {
+            window.ReactNativeWebView.postMessage('Cesium error: ' + error.toString());
+          }
+        </script>
+      </body>
+    </html>
+  `;
+};
