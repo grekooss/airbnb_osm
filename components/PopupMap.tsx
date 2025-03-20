@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, PanResponder, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { Marker } from '../types/map';
 import { router } from 'expo-router';
-import { storage, getPhotosForMarker } from '../lib/appwrite';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions, Image, PanResponder, StyleSheet, View } from 'react-native';
+import { WebView } from 'react-native-webview';
+import { getPhotosForMarker } from '../lib/appwrite';
+import { Marker } from '../types/map';
+import GoogleMapsView from './GoogleMapsView';
 
 interface PopupMapProps {
   marker: Marker;
@@ -11,18 +12,21 @@ interface PopupMapProps {
   zoom: number;
 }
 
-type ViewMode = 'appwrite-image' | 'satellite' | 'carto' | 'osm';
+type ViewMode = 'appwrite-image' | 'google-3d' | 'carto' | 'osm';
 
 const mapStyles = {
   carto: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
   osm: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+  // satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  'google-3d': '' // Placeholder, nie używany dla Google Maps 3D
 };
 
 const SWIPE_THRESHOLD = 50;
+const { width, height } = Dimensions.get('window');
+const ASPECT_RATIO = width / height;
 
 export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
-  const [currentMode, setCurrentMode] = useState<ViewMode>('satellite');
+  const [currentMode, setCurrentMode] = useState<ViewMode>('google-3d');
   const [appwriteImages, setAppwriteImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,13 +61,51 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
   };
 
   const getCurrentZoom = () => {
-    return currentMode === 'satellite' ? 19 : 18;
+    // Dla wszystkich widoków używamy podobnego poziomu przybliżenia
+    // ale dostosowujemy go w zależności od wielkości wielokąta
+    return 18;
+  };
+
+  // Funkcja do obliczania optymalnego poziomu przybliżenia na podstawie wayPoints
+  const calculateOptimalZoom = () => {
+    if (!marker.wayPoints || marker.wayPoints.length === 0) {
+      return 18; // Domyślny poziom przybliżenia
+    }
+
+    // Znajdujemy maksymalne i minimalne wartości szerokości i długości geograficznej
+    let minLat = Number.MAX_VALUE;
+    let maxLat = Number.MIN_VALUE;
+    let minLng = Number.MAX_VALUE;
+    let maxLng = Number.MIN_VALUE;
+    
+    marker.wayPoints.forEach(point => {
+      minLat = Math.min(minLat, point[0]);
+      maxLat = Math.max(maxLat, point[0]);
+      minLng = Math.min(minLng, point[1]);
+      maxLng = Math.max(maxLng, point[1]);
+    });
+    
+    // Obliczamy rozpiętość (delty) wielokąta
+    const latDelta = maxLat - minLat;
+    const lngDelta = maxLng - minLng;
+    
+    // Obliczamy odpowiedni poziom przybliżenia
+    // Im większa delta, tym mniejszy zoom
+    const calculatedZoom = Math.min(
+      19, // Maksymalny zoom
+      Math.max(
+        14, // Minimalny zoom
+        18 - Math.log2(Math.max(latDelta * 30, lngDelta * 30 / ASPECT_RATIO))
+      )
+    );
+    
+    return Math.round(calculatedZoom);
   };
 
   const changeMode = (direction: 'prev' | 'next') => {
     // Tworzymy pełną sekwencję widoków
     const allModes: (ViewMode | 'appwrite-image')[] = [];
-    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm'];
+    const mapModes: ViewMode[] = ['google-3d', 'carto', 'osm'];
     
     // Dodajemy zdjęcia z Appwrite jeśli istnieją
     if (appwriteImages.length > 0) {
@@ -133,7 +175,7 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
       case 'osm':
         return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
       default:
-        return 'Esri';
+        return 'Google Maps';
     }
   };
 
@@ -170,9 +212,13 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
       <body>
         <div id="map"></div>
         <script>
+          // Obliczamy optymalny poziom przybliżenia
+          const wayPoints = ${JSON.stringify(marker.wayPoints)};
+          let optimalZoom = ${calculateOptimalZoom()};
+          
           var map = L.map('map', {
             center: [${center[0]}, ${center[1]}],
-            zoom: ${getCurrentZoom()},
+            zoom: optimalZoom,
             zoomControl: false,
             dragging: false,
             scrollWheelZoom: false,
@@ -183,29 +229,26 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
             markerZoomAnimation: false
           });
           
-          L.tileLayer('${mapStyles[currentMode === 'appwrite-image' ? 'satellite' : currentMode]}', {
+          L.tileLayer('${mapStyles[currentMode === 'appwrite-image' || currentMode === 'google-3d' ? 'osm' : currentMode]}', {
             maxZoom: 19,
-            attribution: '${getMapAttribution(currentMode === 'appwrite-image' ? 'satellite' : currentMode)}',
+            attribution: '${getMapAttribution(currentMode === 'appwrite-image' ? 'osm' : currentMode)}',
             fadeAnimation: false
           }).addTo(map);
 
-          const wayPoints = ${JSON.stringify(marker.wayPoints)};
           if (wayPoints && wayPoints.length > 0) {
             const polygon = L.polygon(wayPoints, {
-              color: '${currentMode === 'satellite' ? 'transparent' : '#FF385C'}',
-              weight: ${currentMode === 'satellite' ? 0 : 2},
+              color: '#FF385C',
+              weight: 2,
               fillColor: '#FF385C',
-              fillOpacity: ${currentMode === 'satellite' ? 0.2 : 0.3}
+              fillOpacity: 0.3
             }).addTo(map);
 
+            // Dopasuj widok do granic wielokąta
             map.fitBounds(polygon.getBounds(), {
-              padding: [20, 20],
+              padding: [40, 40], // Większy padding dla lepszego widoku
               animate: false,
-              maxZoom: ${getCurrentZoom()}
+              maxZoom: optimalZoom
             });
-
-            // Ustaw odpowiedni zoom po dopasowaniu do granic
-            map.setZoom(${getCurrentZoom()}, { animate: false });
           }
         </script>
       </body>
@@ -214,7 +257,7 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
 
   const renderDots = () => {
     const allModes: (ViewMode | 'appwrite-image')[] = [];
-    const mapModes: ViewMode[] = ['satellite', 'carto', 'osm'];
+    const mapModes: ViewMode[] = ['google-3d', 'carto', 'osm'];
     
     // Dodajemy zdjęcia z Appwrite jeśli istnieją
     if (appwriteImages.length > 0) {
@@ -248,7 +291,7 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
     <View style={styles.container}>
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color="#FF385C" />
         </View>
       ) : (
         <View style={styles.mapContainer} {...panResponder.panHandlers}>
@@ -257,16 +300,24 @@ export default function PopupMap({ marker, center, zoom }: PopupMapProps) {
               source={{ uri: appwriteImages[currentImageIndex] }}
               style={styles.image}
               resizeMode="cover"
-              onError={(error) => {
-                console.error('Image loading error:', error.nativeEvent.error);
-                setCurrentMode('satellite');
-              }}
+            />
+          ) : currentMode === 'google-3d' ? (
+            <GoogleMapsView
+              marker={marker}
+              center={center}
+              zoom={zoom}
+              mapType="hybrid"
+              show3DBuildings={true}
             />
           ) : (
             <WebView
               key={key}
               source={{ html: mapHTML }}
               style={styles.webView}
+              scrollEnabled={false}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              originWhitelist={['*']}
             />
           )}
           {renderDots()}

@@ -9,6 +9,7 @@ export interface ListingModel extends Models.Document {
   addr_housenumber: string;
   addr_street: string;
   way_area: number;
-  center_point: string;
+  latitude: number;
+  longitude: number;
   way: string;
 }

@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.airbnb.clone",
       "config": {
-        "usesNonExemptEncryption": false
+        "usesNonExemptEncryption": false,
+        "googleMapsApiKey": "${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}"
       }
     },
     "android": {
@@ -21,7 +22,12 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.airbnb.clone",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "config": {
+        "googleMaps": {
+          "apiKey": "${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}"
+        }
+      }
     },
     "web": {
       "bundler": "metro",

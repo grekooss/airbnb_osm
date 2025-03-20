@@ -60,18 +60,12 @@ export default function MapWithListings({
       // Filtrujemy punkty po stronie klienta, jeśli mamy ustawione granice mapy
       const filteredListings = bounds
         ? response.documents.filter(listing => {
-            try {
-              const [lat, lon] = JSON.parse(listing.center_point);
-              return (
-                lat >= bounds.south &&
-                lat <= bounds.north &&
-                lon >= bounds.west &&
-                lon <= bounds.east
-              );
-            } catch (e) {
-              console.error('Błąd parsowania center_point:', e);
-              return false;
-            }
+            return (
+              listing.latitude >= bounds.south &&
+              listing.latitude <= bounds.north &&
+              listing.longitude >= bounds.west &&
+              listing.longitude <= bounds.east
+            );
           })
         : response.documents;
 
@@ -130,11 +124,10 @@ export default function MapWithListings({
   const markers = listings
     .map(listing => {
       try {
-        const [lat, lon] = JSON.parse(listing.center_point);
         const wayPoints = parseWayPoints(listing.way);
         return {
           id: listing.osm_id,
-          position: [lat, lon] as [number, number],
+          position: [listing.latitude, listing.longitude] as [number, number],
           title:
             listing.name ||
             `${listing.building} ${listing.addr_housenumber}`,
@@ -142,7 +135,7 @@ export default function MapWithListings({
           icon: getActiveIcon()
         };
       } catch (e) {
-        console.error('Błąd parsowania center_point:', e);
+        console.error('Błąd parsowania danych:', e);
         return undefined;
       }
     })
@@ -155,8 +148,8 @@ export default function MapWithListings({
         onBoundsChange={handleBoundsChange}
         onMarkerPress={handleMarkerPress}
         initialState={{
-          center: [54.12840259892358,21.77175386664063],
-          zoom: 13,
+          center: [51.0926374,17.031611],
+          zoom: 14,
         }}
       />
       <ListingsBottomSheet
