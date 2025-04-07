@@ -1,8 +1,9 @@
 import { useWarmUpBrowser } from '@/hooks/useWarmUpBrowser';
+import { loginGoogle } from '@/lib/appwrite';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../../components/Button';
@@ -14,6 +15,20 @@ const LoginModal = () => {
   const handleClose = () => {
     router.back();
   };
+
+const handleLogin = async () => {
+  try {
+    const success = await loginGoogle();
+    if (success) {
+      console.log('Login successful');
+    } else {
+      Alert.alert('Error','Login failed');
+    }
+  } catch (error) {
+    console.error(error);
+    Alert.alert('Error', 'Login failed');
+  }
+};
 
   return (
     <Animated.View 
@@ -60,7 +75,8 @@ const LoginModal = () => {
             label="Continue with Apple"
             icon="logo-apple"
           />
-          <Button 
+          <Button
+            onPress={handleLogin}
             variant="outline" 
             label="Continue with Google"
             icon="logo-google"

@@ -1,30 +1,98 @@
-import { Platform } from 'react-native';
-import { Client, Databases, Storage, Query } from 'react-native-appwrite';
+import * as Linking from "expo-linking";
+import { openAuthSessionAsync } from "expo-web-browser";
+import {
+  Account,
+  Avatars,
+  Client,
+  Databases,
+  OAuthProvider,
+  Query,
+  Storage
+} from "react-native-appwrite";
 
-// Dla debugowania
-const endpoint = process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT!;
-const projectId = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID!;
+export const config = {
+  platform: 'com.airbnb.clone',
+  endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT,
+  projectId: process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+}
 
-console.log('Appwrite config:', {
-  endpoint,
-  projectId,
-  platform: Platform.OS
-});
 
-const client = new Client()
-  .setEndpoint(endpoint)
-  .setProject(projectId);
+export const client = new Client();
 
-const database = new Databases(client);
-const storage = new Storage(client);
+client
+.setEndpoint(config.endpoint!)
+.setProject(config.projectId!)
+.setPlatform(config.platform!)
 
-switch (Platform.OS) {
-  case 'ios':
-    client.setPlatform('com.grekoss.airbnb-osm');
-    break;
-  case 'android':
-    client.setPlatform('com.grekoss.airbnb-osm');
-    break;
+
+export const database = new Databases(client);
+export const storage = new Storage(client);
+export const account = new Account(client);
+export const avatar = new Avatars(client);
+
+export async function loginGoogle(){
+  try {
+    const redirectUri = Linking.createURL('/');
+
+    const response = await account.createOAuth2Token(
+      OAuthProvider.Google,
+      redirectUri
+    );
+
+    if(!response) throw new Error('Failed to login (response)');
+
+    const browserResult = await openAuthSessionAsync(
+      response.toString(),
+      redirectUri
+    )
+
+    if (browserResult.type !== 'success') throw new Error('Failed to login (browserResult)')
+
+    const url = new URL(browserResult.url)
+    const secret = url.searchParams.get('secret')?.toString()
+    const userId = url.searchParams.get('userId')?.toString()
+
+    if (!secret || !userId) throw new Error("Failed to login (!user || !userId)")
+
+    const session = await account.createSession(userId, secret)
+
+    if (!session) throw new Error ('Failed to create a session')
+      
+    return true
+
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
+export async function logoutGoogle(){
+  try {
+    await account.deleteSession('current');
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
+export async function getCurrentUser() {
+  try {
+    const result = await account.get();
+    if (result.$id) {
+      const userAvatar = avatar.getInitials(result.name);
+
+      return {
+        ...result,
+        avatar: userAvatar.toString(),
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
 }
 
 // Funkcja pomocnicza do pobierania URL-a zdjęcia
@@ -60,4 +128,4 @@ export const getPhotosForMarker = async (bucketId: string, markerId: string) => 
   }
 };
 
-export { client, database, storage };
+

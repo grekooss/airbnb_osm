@@ -86,6 +86,21 @@ export default function MapWithListings({
     fetchListings(currentBounds, activeCategory);
   }, [activeCategory]);
 
+  // Dodajemy nowy efekt, który będzie wywoływany tylko raz przy pierwszym renderowaniu
+  useEffect(() => {
+    // Ustawiamy domyślne granice mapy dla Wrocławia
+    const initialBounds: MapBounds = {
+      north: 51.1426374, // Północna granica
+      south: 51.0426374, // Południowa granica
+      east: 17.131611,   // Wschodnia granica
+      west: 16.931611,   // Zachodnia granica
+    };
+    
+    // Ustawiamy początkowe granice i pobieramy punkty
+    setCurrentBounds(initialBounds);
+    fetchListings(initialBounds, activeCategory);
+  }, []);
+
   const handleBoundsChange = async (bounds: MapBounds) => {
     setCurrentBounds(bounds);
     await fetchListings(bounds, activeCategory);

@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "airbnb-clone",
+    "scheme": "com.airbnb.clone",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -22,7 +22,10 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.airbnb.clone",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "config": {
         "googleMaps": {
           "apiKey": "${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}"
@@ -39,7 +42,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash.png",
+          "image": "./assets/images/splash-icon.png",
           "resizeMode": "cover",
           "backgroundColor": "#ffffff",
           "enableFullScreenImage_legacy": true
@@ -49,12 +52,12 @@
         "expo-font",
         {
           "fonts": [
-            "./assets/fonts/airbnb-cereal-black.ttf",
-            "./assets/fonts/airbnb-cereal-bold.ttf",
-            "./assets/fonts/airbnb-cereal-book.ttf",
-            "./assets/fonts/airbnb-cereal-extra-bold.ttf",
-            "./assets/fonts/airbnb-cereal-light.ttf",
-            "./assets/fonts/airbnb-cereal-medium.ttf"
+            "./assets/fonts/airbnb-cereal-app-black.ttf",
+            "./assets/fonts/airbnb-cereal-app-bold.ttf",
+            "./assets/fonts/airbnb-cereal-app-book.ttf",
+            "./assets/fonts/airbnb-cereal-app-extrabold.ttf",
+            "./assets/fonts/airbnb-cereal-app-light.ttf",
+            "./assets/fonts/airbnb-cereal-app-medium.ttf"
           ]
         }
       ]
@@ -62,6 +65,14 @@
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "ab8b7de3-9de2-41b5-a8b6-f8fd54ad579c"
+      }
     }
   }
 }

@@ -1,13 +1,14 @@
+import { CategoryProvider } from '@/context/CategoryContext';
 import '@/global.css';
-import { SplashScreen, Stack } from 'expo-router';
+import GlobalProvider from '@/lib/global-provider';
 import { useFonts } from 'expo-font';
+import { SplashScreen, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { CategoryProvider } from '@/context/CategoryContext';
 
 export {
   // Catch any errors thrown by the layout.
-  ErrorBoundary,
+  ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -35,11 +36,13 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <CategoryProvider>
-        <RootLayoutNav />
-      </CategoryProvider>
-    </GestureHandlerRootView>
+    <GlobalProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <CategoryProvider>
+          <RootLayoutNav /> 
+        </CategoryProvider>
+      </GestureHandlerRootView>
+    </GlobalProvider>
   );
 }
 
